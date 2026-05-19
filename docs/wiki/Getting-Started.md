@@ -119,7 +119,7 @@ database_id = "ここに貼り付け"
 
 ```bash
 # 本番D1にスキーマ適用
-npx wrangler d1 execute line-crm --file=packages/db/schema.sql
+npx wrangler d1 execute your-database --file=packages/db/schema.sql
 
 # ローカルD1にスキーマ適用（開発用）
 pnpm db:migrate:local

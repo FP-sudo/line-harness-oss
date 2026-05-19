@@ -394,6 +394,12 @@ export interface LineAccount {
   role: string | null;
   /** サイドバーアカ切替および /accounts ページの並び順 (drag-drop で更新). */
   displayOrder: number;
+  /** OGP: og:site_name。空欄時は name がフォールバックとして使われる。 */
+  ogSiteName: string | null;
+  /** OGP: アカウント全体のデフォルト og:description。個別レコードで未設定時に使用。 */
+  ogDefaultDescription: string | null;
+  /** OGP: アカウント全体のデフォルト og:image。個別レコードで未設定時に使用。 */
+  ogDefaultImageUrl: string | null;
 }
 
 // -----------------------------------------------------------------------------

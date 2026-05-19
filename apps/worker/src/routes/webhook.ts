@@ -123,7 +123,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env.IMAGES);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -143,6 +143,7 @@ async function handleEvent(
   lineAccountId: string | null = null,
   workerUrl?: string,
   liffUrl?: string,
+  r2?: R2Bucket,
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -421,7 +422,7 @@ async function handleEvent(
     const friend = await getFriendByLineUserId(db, userId);
     if (!friend) return;
 
-    const msg = event.message as { type: string; fileName?: string; title?: string };
+    const msg = event.message as { id: string; type: string; fileName?: string; title?: string };
     const labels: Record<string, string> = {
       sticker: '[スタンプ]',
       image: '[画像]',
@@ -432,12 +433,30 @@ async function handleEvent(
     };
     const content = labels[msg.type] ?? `[${msg.type}]`;
 
+    // image の場合は LINE Content API でバイナリを取得 → R2 → JSON URL に置換。
+    // 失敗時は labels[msg.type] のラベル文字列のまま (フォールバック)。
+    let finalContent = content;
+    if (msg.type === 'image' && r2 && workerUrl) {
+      const lineMessageId = msg.id;
+      const { fetchAndStoreIncomingImage } = await import('../services/incoming-image.js');
+      const refs = await fetchAndStoreIncomingImage({
+        r2,
+        workerUrl,
+        channelAccessToken: lineAccessToken,
+        accountId: lineAccountId ?? 'unknown',
+        messageId: lineMessageId,
+      });
+      if (refs) {
+        finalContent = JSON.stringify(refs);
+      }
+    }
+
     await db
       .prepare(
         `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, source, created_at)
          VALUES (?, ?, 'incoming', ?, ?, NULL, NULL, 'user', ?)`,
       )
-      .bind(crypto.randomUUID(), friend.id, msg.type, content, jstNow())
+      .bind(crypto.randomUUID(), friend.id, msg.type, finalContent, jstNow())
       .run();
     return;
   }

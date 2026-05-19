@@ -4,7 +4,7 @@ compatibility_date = "2024-12-01"
 workers_dev = true
 
 # ═══════════════════════════════════════════════════════════════
-# デフォルト = テスト環境 (noda@)
+# デフォルト = テスト環境
 # 使い方: npx wrangler deploy
 # ═══════════════════════════════════════════════════════════════
 account_id = "YOUR_DEV_ACCOUNT_ID"
@@ -12,6 +12,11 @@ account_id = "YOUR_DEV_ACCOUNT_ID"
 [assets]
 directory = "dist/client"
 binding = "ASSETS"
+# Worker を先に走らせて bot UA → OGP HTML 差し込みを可能にする。
+# 通常 UA のときは Worker の notFound 内で c.env.ASSETS.fetch(req) を呼んで
+# SPA を返す。これが無いと static asset path が Worker をバイパスして
+# 直接配信され、bot 判定が効かない。
+run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
@@ -26,9 +31,9 @@ bucket_name = "line-harness-images"
 crons = ["*/5 * * * *", "0 */6 * * *"]
 
 # ═══════════════════════════════════════════════════════════════
-# 本番環境 (aiagent.mini@)
+# 本番環境
 # 使い方: npx wrangler deploy --env production --name your-worker-name
-# D1:     npx wrangler d1 execute line-crm --env production --remote --file ...
+# D1:     npx wrangler d1 execute your-database --env production --remote --file ...
 # ═══════════════════════════════════════════════════════════════
 [env.production]
 account_id = "YOUR_ACCOUNT_ID"
@@ -36,6 +41,7 @@ account_id = "YOUR_ACCOUNT_ID"
 [env.production.assets]
 directory = "dist/client"
 binding = "ASSETS"
+run_worker_first = true
 
 [[env.production.d1_databases]]
 binding = "DB"

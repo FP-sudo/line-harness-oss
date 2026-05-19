@@ -29,6 +29,9 @@ function serializeLineAccount(row: DbLineAccount) {
     // without a separate fetch.
     loginChannelId: row.login_channel_id,
     liffId: row.liff_id,
+    ogSiteName: row.og_site_name,
+    ogDefaultImageUrl: row.og_default_image_url,
+    ogDefaultDescription: row.og_default_description,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Intentionally omit channelAccessToken / channelSecret / loginChannelSecret
@@ -228,6 +231,9 @@ lineAccounts.post('/api/line-accounts', requireRole('owner'), async (c) => {
       loginChannelId?: string | null;
       loginChannelSecret?: string | null;
       liffId?: string | null;
+      ogSiteName?: string | null;
+      ogDefaultImageUrl?: string | null;
+      ogDefaultDescription?: string | null;
     }>();
 
     if (!body.channelId || !body.name || !body.channelAccessToken || !body.channelSecret) {
@@ -261,6 +267,9 @@ lineAccounts.post('/api/line-accounts', requireRole('owner'), async (c) => {
       loginChannelId,
       loginChannelSecret,
       liffId,
+      ogSiteName: normalizeOptionalString(body.ogSiteName) ?? null,
+      ogDefaultImageUrl: normalizeOptionalString(body.ogDefaultImageUrl) ?? null,
+      ogDefaultDescription: normalizeOptionalString(body.ogDefaultDescription) ?? null,
     });
 
     // Auto-enroll new account into the 'main' traffic pool.
@@ -367,6 +376,9 @@ lineAccounts.patch(
         loginChannelId?: string | null;
         loginChannelSecret?: string | null;
         liffId?: string | null;
+        ogSiteName?: string | null;
+        ogDefaultImageUrl?: string | null;
+        ogDefaultDescription?: string | null;
       }>();
 
       // Normalize: trim non-empty strings; treat empty/whitespace-only as null.
@@ -377,6 +389,9 @@ lineAccounts.patch(
       const loginChannelId = normalizeOptionalString(body.loginChannelId);
       const loginChannelSecret = normalizeOptionalString(body.loginChannelSecret);
       const liffId = normalizeOptionalString(body.liffId);
+      const ogSiteName = normalizeOptionalString(body.ogSiteName);
+      const ogDefaultImageUrl = normalizeOptionalString(body.ogDefaultImageUrl);
+      const ogDefaultDescription = normalizeOptionalString(body.ogDefaultDescription);
 
       // Pre-validate Login pair + uniqueness against the existing row so the
       // caller gets a clean error before we mutate. Skip the lookup entirely
@@ -410,11 +425,17 @@ lineAccounts.patch(
         if (dupError) return c.json({ success: false, error: dupError }, 409);
       }
 
+      const touchesOg =
+        ogSiteName !== undefined ||
+        ogDefaultImageUrl !== undefined ||
+        ogDefaultDescription !== undefined;
+
       const fieldsTouched =
         country !== undefined ||
         role !== undefined ||
         body.isActive !== undefined ||
-        touchesLoginOrLiff;
+        touchesLoginOrLiff ||
+        touchesOg;
 
       // Route to the fields helper when name is not being changed.
       if (body.name === undefined && fieldsTouched) {
@@ -425,6 +446,9 @@ lineAccounts.patch(
           loginChannelId,
           loginChannelSecret,
           liffId,
+          ogSiteName,
+          ogDefaultImageUrl,
+          ogDefaultDescription,
         });
         if (!updated) return c.json({ success: false, error: 'not found' }, 404);
         return c.json({ success: true, data: serializeLineAccount(updated) });
@@ -437,6 +461,9 @@ lineAccounts.patch(
         login_channel_id: loginChannelId,
         login_channel_secret: loginChannelSecret,
         liff_id: liffId,
+        og_site_name: ogSiteName,
+        og_default_image_url: ogDefaultImageUrl,
+        og_default_description: ogDefaultDescription,
       });
       if (!updated) return c.json({ success: false, error: 'LINE account not found' }, 404);
       return c.json({ success: true, data: serializeLineAccount(updated) });
@@ -468,6 +495,9 @@ lineAccounts.put('/api/line-accounts/:id', requireRole('owner'), async (c) => {
       isActive?: boolean;
       country?: string | null;
       role?: string | null;
+      ogSiteName?: string | null;
+      ogDefaultImageUrl?: string | null;
+      ogDefaultDescription?: string | null;
     }>();
 
     const country = normalizeOptionalString(body.country);
@@ -475,6 +505,9 @@ lineAccounts.put('/api/line-accounts/:id', requireRole('owner'), async (c) => {
     const loginChannelId = normalizeOptionalString(body.loginChannelId);
     const loginChannelSecret = normalizeOptionalString(body.loginChannelSecret);
     const liffId = normalizeOptionalString(body.liffId);
+    const ogSiteName = normalizeOptionalString(body.ogSiteName);
+    const ogDefaultImageUrl = normalizeOptionalString(body.ogDefaultImageUrl);
+    const ogDefaultDescription = normalizeOptionalString(body.ogDefaultDescription);
 
     // Validate Login pair + uniqueness identically to PATCH. PUT is the
     // owner-only credential rotation endpoint, so the same correctness
@@ -527,10 +560,19 @@ lineAccounts.put('/api/line-accounts/:id', requireRole('owner'), async (c) => {
       return c.json({ success: false, error: 'LINE account not found' }, 404);
     }
 
-    if (country !== undefined || role !== undefined) {
+    if (
+      country !== undefined ||
+      role !== undefined ||
+      ogSiteName !== undefined ||
+      ogDefaultImageUrl !== undefined ||
+      ogDefaultDescription !== undefined
+    ) {
       updated = await updateLineAccountFields(c.env.DB, id, {
         country,
         role,
+        ogSiteName,
+        ogDefaultImageUrl,
+        ogDefaultDescription,
       });
       if (!updated) {
         return c.json({ success: false, error: 'LINE account not found' }, 404);
