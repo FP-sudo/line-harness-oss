@@ -1,9 +1,10 @@
 name: Update from upstream
 
 on:
+  # Daily schedule disabled 2026-06-26: PR creation was failing and this fork
+  # is deployed manually, not via CI. Run this manually from the Actions tab
+  # ("Run workflow") when you want to pull the latest upstream into the fork.
   workflow_dispatch:
-  schedule:
-    - cron: '17 19 * * *'
 
 permissions:
   contents: write
